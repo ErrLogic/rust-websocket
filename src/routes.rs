@@ -1,5 +1,6 @@
 use warp::Filter;
 use crate::{state::ServerState, handlers};
+use crate::errors::handle_rejection;
 
 pub fn create_routes(state: ServerState) -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
     let ws_route = warp::path("ws")
@@ -11,7 +12,8 @@ pub fn create_routes(state: ServerState) -> warp::filters::BoxedFilter<(impl war
         .and(warp::post())
         .and(warp::body::json())
         .and(with_state(state.clone()))
-        .and_then(handlers::handle_send);
+        .and_then(handlers::handle_send)
+        .recover(handle_rejection);
 
     ws_route.or(send_route).boxed()
 }

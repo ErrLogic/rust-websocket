@@ -1,3 +1,4 @@
+use crate::errors::ErrorMessage;
 use crate::state::ServerState;
 use crate::utils::subscribe_channel;
 use futures_util::StreamExt;
@@ -6,7 +7,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 use warp::reply::json;
-use warp::ws::WebSocket;
+use warp::{http::StatusCode, reject, ws::WebSocket, Rejection, Reply};
 
 pub async fn handle_ws(ws: WebSocket, state: ServerState) {
     let (tx, mut rx) = ws.split();
@@ -34,7 +35,7 @@ pub struct SendMessage {
     pub message: Value,
 }
 
-pub async fn handle_send(body: SendMessage, state: ServerState) -> Result<impl warp::Reply, warp::Rejection> {
+pub async fn handle_send(body: SendMessage, state: ServerState) -> Result<impl Reply, Rejection> {
     let channels = state.channels.lock().await;
 
     if let Some(sender) = channels.get(&body.channel) {
@@ -43,11 +44,25 @@ pub async fn handle_send(body: SendMessage, state: ServerState) -> Result<impl w
         let formatted_message = json!({
             "sender": body.sender,
             "message": message_string
-        }).to_string();
+        });
 
-        let _ = sender.send(formatted_message);
+        if sender.send(formatted_message.to_string()).is_ok() {
+            let response = json!({
+                "status": "sent",
+                "sender": body.sender,
+                "channel": body.channel,
+                "data": {
+                    "message": message_string,
+                    "sender": body.sender
+                }
+            });
+
+            return Ok(warp::reply::with_status(json(&response), StatusCode::OK));
+        }
     }
 
-
-    Ok(json(&serde_json::json!({"status": "sent"})))
+    Err(reject::custom(ErrorMessage {
+        message: "Channel not found".to_string(),
+    }))
 }
+

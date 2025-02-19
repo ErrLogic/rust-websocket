@@ -3,6 +3,7 @@ mod state;
 mod routes;
 mod handlers;
 mod utils;
+mod errors;
 
 use state::ServerState;
 
