@@ -49,7 +49,6 @@ pub async fn handle_send(body: SendMessage, state: ServerState) -> Result<impl R
         if sender.send(formatted_message.to_string()).is_ok() {
             let response = json!({
                 "status": "sent",
-                "sender": body.sender,
                 "channel": body.channel,
                 "data": {
                     "message": message_string,
